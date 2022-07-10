@@ -1,0 +1,96 @@
+kind: ConfigMap
+apiVersion: v1
+metadata:
+  name: qmgr-setup
+  namespace: ibmmq
+data:
+  1-setupldap.mqsc: |+
+    *
+    * setup LDAP
+    *
+
+    * define connection to LDAP server to use
+    DEFINE AUTHINFO(USE.LDAP) +
+    AUTHTYPE(IDPWLDAP) +
+    CONNAME('ldap-service.ldap(389)') +
+    LDAPUSER('cn=admin,dc=ibm,dc=com') LDAPPWD('admin') +
+    SECCOMM(NO) +
+    USRFIELD('uid') +
+    SHORTUSR('uid') +
+    BASEDNU('ou=people,dc=ibm,dc=com') +
+    AUTHORMD(SEARCHGRP) +
+    BASEDNG('ou=groups,dc=ibm,dc=com') +
+    GRPFIELD('cn') +
+    CLASSGRP('groupOfUniqueNames') +
+    FINDGRP('uniqueMember') +
+    REPLACE
+
+    * configure the queue manager to use the LDAP connection for auth
+    ALTER QMGR CONNAUTH(USE.LDAP)
+    REFRESH QMGR TYPE(CONFIGEV) OBJECT(AUTHINFO)
+
+
+  2-init.mqsc: |+
+    *
+    * setup queue
+    *
+
+    * the queue that JMS apps will put to and get from
+    DEFINE QLOCAL(COMMANDS) REPLACE
+
+
+    *
+    * setup channels
+    *
+
+    * create the channel that JMS apps will use
+    DEFINE CHANNEL(APP.SVRCONN) CHLTYPE(SVRCONN) TRPTYPE(TCP) SSLCAUTH(OPTIONAL) SSLCIPH('ANY_TLS12_OR_HIGHER')
+
+
+    *
+    * setup security
+    *
+
+    * JMS apps will use the APP channel
+    SET CHLAUTH(APP.SVRCONN) TYPE(BLOCKUSER) USERLIST(*MQUSER) WARN(YES) ACTION(REPLACE)
+
+    REFRESH SECURITY
+
+    * the JMS apps can do whatever they want to
+    SET AUTHREC OBJTYPE(QMGR) GROUP('mqusers') AUTHADD(ALL)
+    SET AUTHREC OBJTYPE(QUEUE) PROFILE('**') GROUP('mqusers') AUTHADD(ALL)
+    SET AUTHREC OBJTYPE(CHANNEL) PROFILE('**') GROUP('mqusers') AUTHADD(ALL)
+
+
+  3-modifications.mqsc: |+
+    *
+    * setup queues
+    *
+
+    * add the queue that Kafka Connect will use
+    DEFINE QLOCAL(COMMANDS.COPY) REPLACE
+    * alter the queue that the JMS app puts to, so that it streams a copy of all messages to the Kafka Connect queue
+    ALTER QLOCAL(COMMANDS) STREAMQ('COMMANDS.COPY') STRMQOS(MUSTDUP)
+
+
+    *
+    * setup channel
+    *
+
+    * the channel that Kafka Connect will use
+    DEFINE CHANNEL(KAFKA.SVRCONN) CHLTYPE(SVRCONN) TRPTYPE(TCP) SSLCAUTH(OPTIONAL) SSLCIPH('ANY_TLS12_OR_HIGHER') REPLACE
+
+
+    *
+    * setup security
+    *
+
+    * Kafka Connect has to use the channel created for it
+    SET CHLAUTH(KAFKA.SVRCONN) TYPE(BLOCKUSER) USERLIST(*KAFKAUSER) WARN(YES) ACTION(REPLACE)
+
+    REFRESH SECURITY
+
+    * Kafka Connect should be able to connect to the qmgr, and get messages from COMMANDS.COPY
+    SET AUTHREC OBJTYPE(QMGR) GROUP('kafkausers') AUTHADD(CONNECT, INQ)
+    SET AUTHREC OBJTYPE(QUEUE) PROFILE(COMMANDS.COPY) GROUP('kafkausers') AUTHADD(ALLMQI)
+

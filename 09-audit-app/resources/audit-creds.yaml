@@ -1,0 +1,30 @@
+apiVersion: eventstreams.ibm.com/v1beta1
+kind: KafkaUser
+metadata:
+  name: audit-app
+  namespace: kafka
+  labels:
+    eventstreams.ibm.com/cluster: eventstreams
+spec:
+  authentication:
+    # generate username/password for this user
+    type: scram-sha-512
+  authorization:
+    acls:
+      # ---------------------------------------
+      # topic permissions
+      # ---------------------------------------
+      - resource:
+          type: topic
+          name: MQ.COMMANDS
+          patternType: literal
+        operation: Read
+      # ---------------------------------------
+      # consumer group permissions
+      # ---------------------------------------
+      - operation: Read
+        resource:
+          name: audit
+          patternType: literal
+          type: group
+    type: simple

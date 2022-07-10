@@ -1,0 +1,64 @@
+apiVersion: eventstreams.ibm.com/v1beta2
+kind: KafkaConnect
+metadata:
+  name: connectors
+  namespace: kafka
+  annotations:
+    eventstreams.ibm.com/use-connector-resources: "true"
+spec:
+  image: image-registry.openshift-image-registry.svc:5000/kafka/kafkaconnectwithmq:latest
+  template:
+    pod:
+      imagePullSecrets: []
+      metadata:
+        annotations:
+          eventstreams.production.type: CloudPakForIntegrationNonProduction
+          productID: 2a79e49111f44ec3acd89608e56138f5
+          productName: IBM Event Streams for Non Production
+          productVersion: 11.0.2
+          productMetric: VIRTUAL_PROCESSOR_CORE
+          productChargedContainers: connectors-connect
+          cloudpakId: c8b82d189e7545f0892db9ef2731b90d
+          cloudpakName: IBM Cloud Pak for Integration
+          cloudpakVersion: 2022.2.1
+          productCloudpakRatio: '2:1'
+  bootstrapServers: eventstreams-kafka-bootstrap.kafka.svc:9093
+  tls:
+    trustedCertificates:
+      - secretName: eventstreams-cluster-ca-cert
+        certificate: ca.crt
+      - secretName: mq-ca-tls
+        certificate: ca.crt
+  authentication:
+    type: scram-sha-512
+    username: kafka-connect-credentials
+    passwordSecret:
+      secretName: kafka-connect-credentials
+      password: password
+  config:
+    group.id: connect-cluster
+    offset.storage.topic: connect-cluster-offsets
+    config.storage.topic: connect-cluster-configs
+    status.storage.topic: connect-cluster-status
+    # enable connectors to read config from secrets
+    config.providers: file
+    config.providers.file.class: org.apache.kafka.common.config.provider.DirectoryConfigProvider
+  replicas: 1
+  resources:
+    requests:
+      cpu: 1000m
+      memory: 2Gi
+    limits:
+      cpu: 2000m
+      memory: 2Gi
+  externalConfiguration:
+    volumes:
+      - name: mq-credentials
+        secret:
+          secretName: mq-credentials
+      - name: jms-client-truststore
+        secret:
+          secretName: jms-client-truststore
+      - name: jms-client-keystore
+        secret:
+          secretName: jms-client-keystore

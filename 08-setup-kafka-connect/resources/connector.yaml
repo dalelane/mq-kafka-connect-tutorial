@@ -1,0 +1,33 @@
+apiVersion: eventstreams.ibm.com/v1beta2
+kind: KafkaConnector
+metadata:
+  name: mq-connector
+  namespace: kafka
+  labels:
+    eventstreams.ibm.com/cluster: connectors
+spec:
+  class: com.ibm.eventstreams.connect.mqsource.MQSourceConnector
+  tasksMax: 1
+  config:
+    # the Kafka topic to produce to
+    topic: MQ.COMMANDS
+    # the MQ queue to get messages from
+    mq.queue: COMMANDS.COPY
+    # messages sent to the MQ queue are JMS TextMessages
+    mq.message.body.jms: true
+    key.converter: org.apache.kafka.connect.storage.StringConverter
+    value.converter: org.apache.kafka.connect.storage.StringConverter
+    mq.record.builder: com.ibm.eventstreams.connect.mqsource.builders.DefaultRecordBuilder
+    # connection details for the queue manager
+    mq.queue.manager: MYQMGR
+    mq.connection.name.list: queuemanager-ibm-mq.ibmmq(1414)
+    mq.channel.name: KAFKA.SVRCONN
+    mq.user.name: ${file:/opt/kafka/external-configuration/mq-credentials:username}
+    mq.password: ${file:/opt/kafka/external-configuration/mq-credentials:password}
+    # SSL config for connecting to MQ
+    mq.ssl.use.ibm.cipher.mappings: false
+    mq.ssl.cipher.suite: '*TLS12'
+    mq.ssl.truststore.location: /opt/kafka/external-configuration/jms-client-truststore/ca.jks
+    mq.ssl.truststore.password: ${file:/opt/kafka/external-configuration/jms-client-truststore:password}
+    mq.ssl.keystore.location: /opt/kafka/external-configuration/jms-client-keystore/client.jks
+    mq.ssl.keystore.password: ${file:/opt/kafka/external-configuration/jms-client-keystore:password}

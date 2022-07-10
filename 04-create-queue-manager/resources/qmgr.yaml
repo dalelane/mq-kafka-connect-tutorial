@@ -1,0 +1,65 @@
+apiVersion: mq.ibm.com/v1beta1
+kind: QueueManager
+metadata:
+  name: queuemanager
+  namespace: ibmmq
+spec:
+  license:
+    accept: true
+    license: L-RJON-C7QG3S
+    use: NonProduction
+  terminationGracePeriodSeconds: 30
+  pki:
+    keys:
+      - name: default
+        secret:
+          items:
+            - tls.crt
+            - tls.key
+          secretName: mq-server-tls
+    trust:
+      - name: ca
+        secret:
+          items:
+            - ca.crt
+          secretName: mq-ca-tls
+  securityContext:
+    initVolumeAsRoot: false
+  web:
+    enabled: true
+  version: 9.2.5.0-r3
+  template:
+    pod:
+      containers:
+        - name: qmgr
+          resources: {}
+  queueManager:
+    metrics:
+      enabled: true
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 500m
+        memory: 1Gi
+    route:
+      enabled: true
+    name: MYQMGR
+    imagePullPolicy: IfNotPresent
+    debug: false
+    mqsc:
+      - configMap:
+          items:
+            - 1-setupldap.mqsc
+            - 2-init.mqsc
+          name: qmgr-setup
+    logFormat: Basic
+    availability:
+      type: SingleInstance
+      updateStrategy: RollingUpdate
+    storage:
+      defaultClass: ibmc-block-gold
+      queueManager:
+        deleteClaim: true
+        type: persistent-claim
